@@ -1,0 +1,23 @@
+Get access token grant type password:
+http://localhost:8080/web-server/oauth/token?username=user1&password=user1&client_id=client1&client_secret=client1&grant_type=password
+
+Get resource 
+http://localhost:8080/web-server/api/withdraw?withdraw=300&access_token=bdbfb7f9-06df-4883-a839-5baef7c1f366
+
+
+Refresh token:
+http://localhost:8080/web-server/oauth/token?client_id=client1&client_secret=client1&grant_type=refresh_token&refresh_token=8174a25e-85e7-4221-a7e5-d0703b123b13
+
+
+
+
+
+
+
+
+Get token for client_credentials:
+http://localhost:8080/web-server/oauth/token?client_id=client1&client_secret=client1&grant_type=client_credentials
+
+
+Client access service from the bank with token above:
+http://localhost:8080/web-server/api/client?access_token=81c16f61-2a75-496a-8b00-1d875847e5c0
