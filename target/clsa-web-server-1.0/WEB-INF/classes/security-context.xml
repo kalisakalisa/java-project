@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:oauth="http://www.springframework.org/schema/security/oauth2"
+	xmlns:sec="http://www.springframework.org/schema/security" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/security/oauth2 
+	http://www.springframework.org/schema/security/spring-security-oauth2-1.0.xsd
+	http://www.springframework.org/schema/mvc 
+	http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+	http://www.springframework.org/schema/security 
+	http://www.springframework.org/schema/security/spring-security-3.2.xsd
+	http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+	<!-- HTTP SERCURE MAPPING CONFIGURATION -->
+
+	<!-- Secure the token service -->
+	<!-- This service will use clientAuthenticationManager for grant type client-credentials 
+		and clientAuthenticationEntryPoint for grant type password -->
+	<http pattern="/oauth/token" create-session="stateless"
+		authentication-manager-ref="clientAuthenticationManager"
+		xmlns="http://www.springframework.org/schema/security">
+		<intercept-url pattern="/oauth/token" access="IS_AUTHENTICATED_FULLY" />
+		<anonymous enabled="false" />
+		<http-basic entry-point-ref="clientAuthenticationEntryPoint" />
+		<custom-filter ref="clientCredentialsTokenEndpointFilter"
+			before="BASIC_AUTH_FILTER" />
+		<access-denied-handler ref="oauthAccessDeniedHandler" />
+	</http>
+
+	<!-- Secure the api with Oauth entry point -->
+	<http pattern="/api/**" create-session="never"
+		entry-point-ref="oauthAuthenticationEntryPoint" xmlns="http://www.springframework.org/schema/security">
+		<anonymous enabled="false" />
+		<intercept-url pattern="/api/**" method="GET"
+			access="IS_AUTHENTICATED_FULLY" />
+		<custom-filter ref="resourceServerFilter" before="PRE_AUTH_FILTER" />
+		<access-denied-handler ref="oauthAccessDeniedHandler" />
+	</http>
+
+
+	<!-- Secure the application's request with spring security -->
+	<http xmlns="http://www.springframework.org/schema/security"
+		authentication-manager-ref="userAuthenticationManager" auto-config="true">
+		<intercept-url pattern="/index" access="IS_AUTHENTICATED_FULLY" />
+		<intercept-url pattern="/oauth/authorize" access="IS_AUTHENTICATED_FULLY"
+			requires-channel="any" />
+
+		<form-login authentication-failure-url="/login.jsp"
+			default-target-url="/index.jsp" login-page="/login.jsp"
+			login-processing-url="/login.do" />
+		<logout logout-success-url="/index" logout-url="/logout.do" />
+	</http>
+	<!--END HTTP SERCURE MAPPING CONFIGURATION -->
+
+
+
+
+
+	<!-- ENTRY POINT CONFIGURATION -->
+	<!-- Define an Oauth entry point -->
+	<bean id="oauthAuthenticationEntryPoint"
+		class="org.springframework.security.oauth2.provider.error.OAuth2AuthenticationEntryPoint">
+	</bean>
+
+	<!-- Declare an HTTP authentication -->
+	<bean id="clientAuthenticationEntryPoint"
+		class="org.springframework.security.oauth2.provider.error.OAuth2AuthenticationEntryPoint">
+		<property name="realmName" value="springsec/client" />
+		<property name="typeName" value="Basic" />
+	</bean>
+	<!-- Define access handle class -->
+	<bean id="oauthAccessDeniedHandler"
+		class="org.springframework.security.oauth2.provider.error.OAuth2AccessDeniedHandler">
+	</bean>
+
+	<!-- Client credential end point filter -->
+	<bean id="clientCredentialsTokenEndpointFilter"
+		class="org.springframework.security.oauth2.provider.client.ClientCredentialsTokenEndpointFilter">
+		<property name="authenticationManager" ref="clientAuthenticationManager" />
+	</bean>
+	<!-- END ENTRY POINT CONFIGURATION -->
+
+
+
+
+
+
+	<!-- AUTHENTICATION MANAGER -->
+	<!-- Define an custom authentication manager for client, it just like user 
+		authentication -->
+	<authentication-manager alias="clientAuthenticationManager"
+		xmlns="http://www.springframework.org/schema/security">
+		<authentication-provider user-service-ref="clientDetailsUserService" />
+	</authentication-manager>
+
+	<bean id="clientDetailsUserService"
+		class="org.springframework.security.oauth2.provider.client.ClientDetailsUserDetailsService">
+		<constructor-arg ref="clientDetailsService" />
+	</bean>
+
+	<bean id="clientDetailsService" class="com.clsa.web.oauth.ClientDetailsServiceImpl" />
+
+
+
+	<!-- Define an custom user detail , this is for user -->
+	<authentication-manager id="userAuthenticationManager"
+		xmlns="http://www.springframework.org/schema/security">
+		<authentication-provider ref="customUserAuthenticationProvider">
+		</authentication-provider>
+	</authentication-manager>
+
+	<bean id="customUserAuthenticationProvider" class="com.clsa.web.oauth.CustomUserAuthenticationProvider">
+	</bean>
+	<!-- END AUTHENTICATION MANAGER -->
+
+
+
+
+
+	<!-- AUTHENTICATION AND RESOURCE SERVER CONFIGURATION -->
+	<!-- In this sample authentication and resource server are located in one 
+		server. -->
+
+	<!-- Define an authorization server, that support different grant types -->
+	<!-- There are 6 grant types, learn more from here : http://tutorials.jenkov.com/oauth2/authorization.html -->
+	<oauth:authorization-server
+		client-details-service-ref="clientDetailsService" token-services-ref="tokenServices">
+		<!-- This sample will use grant type PASSWORD for third party service access, 
+			USER-KFC-BANK -->
+		<oauth:authorization-code />
+
+		<oauth:implicit />
+		<!-- This grant type support refresh token -->
+		<oauth:refresh-token />
+		<!-- This grant is use for service access from KFC-BANK -->
+		<oauth:client-credentials />
+		<oauth:password authentication-manager-ref="userAuthenticationManager" />
+	</oauth:authorization-server>
+
+	<!-- Define filter for resource server -->
+	<oauth:resource-server id="resourceServerFilter"
+		resource-id="springsec" token-services-ref="tokenServices" />
+
+	<!-- Define token store, token will be stored in resource server, in memory 
+		or in database -->
+	<bean id="tokenStore"
+		class="org.springframework.security.oauth2.provider.token.store.InMemoryTokenStore" />
+
+	<bean id="approvalStore"
+		class="org.springframework.security.oauth2.provider.approval.TokenApprovalStore">
+		<property name="tokenStore" ref="tokenStore"></property>
+	</bean>
+
+	<!-- Define a token service -->
+	<bean id="tokenServices"
+		class="org.springframework.security.oauth2.provider.token.DefaultTokenServices">
+		<property name="tokenStore" ref="tokenStore" />
+		<property name="supportRefreshToken" value="true" />
+		<property name="accessTokenValiditySeconds" value="5000"></property>
+		<property name="clientDetailsService" ref="clientDetailsService" />
+	</bean>
+
+	<!-- END AUTHENTICATION AND RESOURCE SERVER CONFIGURATION -->
+
+</beans>
